@@ -93,7 +93,7 @@ def run_episode(env):
 
     After each episode of game, we move to new generation of models
     """
-    fitness = list()
+    fitness = [-21 for _ in range(population)]
     total_reward = 0
     obs = env.reset() #Get the initial pixel output
     prev_obs = None
