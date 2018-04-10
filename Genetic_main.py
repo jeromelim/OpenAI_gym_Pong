@@ -2,76 +2,226 @@
 Train a Pong AI using Genetic algorithms.
 """
 
-
+import numpy as np
 import gym
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten, Reshape, Input
+from keras.layers import Dense, Dropout, Flatten, Reshape, Input
 from keras.layers import Conv2D, MaxPooling2D
 from keras.optimizers import Adam
+from genetic_algorithms import crossover, mutate
+import skvideo.io
+
+
+# init environment
+env = gym.make("Pong-v0")
+number_of_inputs = 3 # 3 actions: up, down, stay
+action_map = {0:2,1:0,2:3} # predict class 0 will move racket up (action 2), 
+                           # class 1 will keep racket stay(action 0) & class 2 will move racket down (action 3)
+
+# init variables for genetic algorithms 
+num_generations = 1000 # Number of times to evole the population.
+population = 50 # Number of networks in each generation.
+fitness = list() # Fitness scores for evaluate the model
+generation = 1 # Start with first generation
+
+# init variables for CNN
+currentPool = []
+input_dim = 80*80
+learning_rate = 0.001
+
+# Initialize all models
+for _ in range(population):
+    """
+    Keras 2.1.1; tensorflow as backend.
+
+
+    Structure of CNN
+    ----------------
+    Convolutional Layer: 32 filers of 8 x 8 with stride 4 and applies ReLU activation function
+        - output layer (width, height, depth): (20, 20, 32)
+
+    MaxPooling Layer: 2 x 2 filers with stride 2
+        - output layer (width, height, depth): (10, 10, 32)
+    
+    Dense Layer: fully-connected consisted of 32 rectifier units
+        - output layer: 32 neurons
+
+    Dropout Layer: 
+
+    Output Layer: fully-connected linear layer with a single output for each valid action, applies softmax activation function
+    
+
+    Refernce: https://github.com/mkturkcan/Keras-Pong/blob/master/keras_pong.py
+
+    """
+    model = Sequential()
+    model.add(Reshape((80,80,1), input_shape=(input_dim,)))
+    model.add(Conv2D(32, kernel_size = (8, 8), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
+
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+
+    model.add(Flatten())
+    model.add(Dense(32, activation='relu', kernel_initializer='he_uniform'))
+    model.add(Dropout(0.5))
+    model.add(Dense(3, activation='softmax'))
+    opt = Adam(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy', optimizer=opt)
+    currentPool.append(model)
+    fitness.append(-21) # -21 is the lowest score in game
+
+def preprocess_image(I):
+    """ Return array of 80 x 80
+    https://github.com/mkturkcan/Keras-Pong/blob/master/keras_pong.py
+    """
+    I = I[35:195] # crop
+    I = I[::2,::2,0] # downsample by factor of 2
+    I[I == 144] = 0 # erase background (background type 1)
+    I[I == 109] = 0 # erase background (background type 2)
+    I[I != 0] = 1 # everything else (paddles, ball) just set to 1
+    return I.reshape([1,len(I.ravel())])
+
+def predict_action(processed_obs,model_num):
+    global currentPool
+    output_class = currentPool[model_num].predict_classes(processed_obs, batch_size=1)[0]
+    return action_map[output_class]
+
+def run_episode(env):
+    """ Run single episode of pong (one game)
+    Each episode run, each of population model will play 
+    the game and get the fitness(final reward when game is finished)
+
+    After each episode of game, we move to new generation of models
+    """
+    global fitness
+    total_reward = 0
+    obs = env.reset() #Get the initial pixel output
+    print("Start...")
+    while True:
+        obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
+        for model_num in range(population):
+            action = predict_action(obs,model_num) # Predict the next action using CNN
+            obs, reward, done, _ = env.step(action)
+            total_reward += reward
+            if done:
+                fitness[model_num] = total_reward
+                print("Game Over")
+                break
+    return fitness
+
+
+def run_game(env,model,generation,render=False,save=False):
+    """ Play one pong game given a trained model
+
+    Attributes:
+    ----------
+    render: if True, render the gameplay
+    save: if True save the gameplay in mp4 format
+    """
+    obs = env.reset()
+    
+    if save:
+        name = "../genetic_gamplay/genetic_pong_generation_" + str(generation) +".mp4"
+        writer = skvideo.io.FFmpegWriter("/results/pong_random_actions.mp4")
+
+    while True:
+        
+
+        if render:
+            env.render()
+
+        if save:
+            writer.writeFrame(env.render(mode='rgb_array'))
+
+    
+        obs = preprocess_image(obs)
+        action = model.predict_classes(obs, batch_size=1)[0]
+        action = action_map[output_class]
+        obs, reward, done, _ = env.step(action)
+        if done:
+            print("Game Over")
+            break
+    
+    if save:
+        writer.close()
+
+    
+
 
 def main():
-    # init environment
-    env = gym.make("Pong-v0")
-    number_of_inputs = 3 # 3 actions: up, down, stay
-
-    # init variables for genetic algorithms 
-    generations = 20 # Number of times to evole the population.
-    population = 50 # Number of networks in each generation.
-
-    # init variables for CNN
-    current_pool = []
-    input_dim = (80,80,1)
-    learning_rate = 0.001
-
-    # Initialize all models
-    for _ in range(population):
-        """
-        Keras 2.1.1; tensorflow as backend.
-
-
-        Structure of CNN
-        ----------------
-        Convolutional Layer: 32 filers of 8 x 8 with stride 4 and applies ReLU activation function
-            - output layer (width, height, depth): (20, 20, 32)
-
-        MaxPooling Layer: 2 x 2 filers with stride 2
-            - output layer (width, height, depth): (10, 10, 32)
-        
-        Dense Layer: fully-connected consisted of 32 rectifier units
-            - output layer: 32 neurons
-
-        Dropout Layer: 
-
-        Output Layer: fully-connected linear layer with a single output for each valid action, applies softmax activation function
-        
-
-        Refernce: https://github.com/mkturkcan/Keras-Pong/blob/master/keras_pong.py
-
-        """
-        model = Sequential()
-        model.add(Reshape((80,80,1), input_shape=(input_dim,)))
-        model.add(Conv2D(32, kernel_size = (8, 8), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
-
-        model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-
-        model.add(Flatten())
-        model.add(Dense(32, activation='relu', kernel_initializer='he_uniform'))
-        model.add(Dropout(0.5))
-        model.add(Dense(3, activation='softmax'))
-        opt = Adam(lr=learning_rate)
-        model.compile(loss='categorical_crossentropy', optimizer=opt)
-        current_pool.append(model)
+    global fitness, currentPool, generation
     
-    def preprocessImage(I):
-        """ Return array of 80 x 80
-        https://github.com/mkturkcan/Keras-Pong/blob/master/keras_pong.py
+    
+    for _ in range(num_generations):
+        """ Train models num_generations times 
         """
-        I = I[35:195] # crop
-        I = I[::2,::2,0] # downsample by factor of 2
-        I[I == 144] = 0 # erase background (background type 1)
-        I[I == 109] = 0 # erase background (background type 2)
-        I[I != 0] = 1 # everything else (paddles, ball) just set to 1
-        return I
+        
+        print("Running Generation: ", generation)
+        print("="*50)
+
+
+
+        fitness = run_episode(env)
+        max_fitness,min_fitness = np.max(fitness),np.min(fitness)
+        best_model = currentPool[np.argmax(fitness)]
+
+        if generation %100 ==0:
+            run_game(env,best_model,generation,save=True)
+            
+
+
+        # Normalize the fitness of each model using minmax normalization 
+        for model_num in range(population):
+            fitness[model_num] = (fitness[select] - min_fitness)/(max_fitness-min_fitness)
+        
+        for model_num in range(int(population/2)):
+            parent1 = np.random.uniform(0, 1)
+            parent2 = np.random.uniform(0, 1)
+            idx1 = -1
+            idx2 = -1
+
+            # Higher the fitness score higher chance it is selected 
+            for idxx in range(population):
+                if fitness[idxx] >= parent1:
+                    idx1 = idxx
+                    break
+            for idxx in range(population):
+                if fitness[idxx] >= parent2:
+                    idx2 = idxx
+                    break
+            # Crossover weights of two models 
+            new_weights1 = crossover(currentPool,idx1, idx2)
+
+            # Mutate the weights randomly
+            updated_weights1 = mutate(new_weights1[0])
+            updated_weights2 = mutate(new_weights1[1])
+
+            # Update the weights
+            currentPool[idx1].set_weights(updated_weights1)
+            currentPool[idx2].set_weights(updated_weights2)
+
+        generation += 1
+
+    return
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+    
+        
 
 
     
