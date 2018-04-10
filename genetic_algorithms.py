@@ -31,13 +31,14 @@ def crossover(current_generation,model_idx1, model_idx2):
     return np.asarray([weightsnew1, weightsnew2])
 
 
+
 def mutate(weights):
     """Select weights randomly with a 0.15 probability and then change its value with a random number between -0.5 to +0.5.
     """
-    for xi in range(len(weights)):
-	    for yi in range(len(weights[xi])):
-            if np.random.uniform(0, 1) > 0.85:
-			    change = np.random.uniform(-0.5,0.5)
-				weights[xi][yi] += change
-	return weights
 
+    for xi in range(len(weights)):
+        for yi in range(len(weights[xi])):
+            if np.random.uniform(0,1) > 0.85:
+                change = np.random.uniform(-0.5,0.5)
+                weights[xi][yi] += change
+    return weights
