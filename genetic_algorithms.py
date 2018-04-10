@@ -12,7 +12,7 @@ import numpy as np
 def crossover(current_generation,model_idx1, model_idx2):
     """
     Crossover two neural network to produce two new networks by 
-    swapping the weights randomly (layer 1, 4, and 6; Conv2d, dense ,output)
+    swapping the weights randomly (layer 0, 2, and 4; Conv2d, dense ,output)
 
 
     Attributes:
@@ -25,7 +25,7 @@ def crossover(current_generation,model_idx1, model_idx2):
     weights2 = current_generation[model_idx2].get_weights()
     weightsnew1 = weights1
     weightsnew2 = weights2
-    swap_layer = np.random.choice([1,4,6])
+    swap_layer = np.random.choice([0,2,4])
     weightsnew1[swap_layer] = weights2[swap_layer]
     weightsnew2[swap_layer] = weights1[swap_layer]
     return np.asarray([weightsnew1, weightsnew2])

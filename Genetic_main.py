@@ -10,7 +10,7 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.optimizers import Adam
 from genetic_algorithms import crossover, mutate
 import skvideo.io
-
+import os
 
 # init environment
 env = gym.make("Pong-v0")
@@ -18,11 +18,12 @@ number_of_inputs = 3 # 3 actions: up, down, stay
 action_map = {0:2,1:0,2:3} # predict class 0 will move racket up (action 2), 
                            # class 1 will keep racket stay(action 0) & class 2 will move racket down (action 3)
 
+
 # init variables for genetic algorithms 
 num_generations = 1000 # Number of times to evole the population.
 population = 50 # Number of networks in each generation.
 fitness = list() # Fitness scores for evaluate the model
-generation = 1 # Start with first generation
+generation = 0 # Start with first generation
 
 # init variables for CNN
 currentPool = []
@@ -95,16 +96,19 @@ def run_episode(env):
     global fitness
     total_reward = 0
     obs = env.reset() #Get the initial pixel output
+    prev_obs = None
     print("Start...")
-    while True:
-        obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
-        for model_num in range(population):
-            action = predict_action(obs,model_num) # Predict the next action using CNN
+    for model_num in range(population):
+        while True:
+            cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
+            obs_diff = cur_obs - prev_obs if prev_obs is not None else np.zeros(input_dim).reshape([1,input_dim]) # Calculate frame difference as model input 
+            prev_obs = cur_obs
+            action = predict_action(obs_diff,model_num) # Predict the next action using CNN
             obs, reward, done, _ = env.step(action)
             total_reward += reward
             if done:
                 fitness[model_num] = total_reward
-                print("Game Over")
+                print("Game Over for model ",model_num)
                 break
     return fitness
 
@@ -118,10 +122,10 @@ def run_game(env,model,generation,render=False,save=False):
     save: if True save the gameplay in mp4 format
     """
     obs = env.reset()
-    
+    prev_obs = None
     if save:
-        name = "../genetic_gamplay/genetic_pong_generation_" + str(generation) +".mp4"
-        writer = skvideo.io.FFmpegWriter("/results/pong_random_actions.mp4")
+        name = "genetic_gameplay/genetic_pong_generation_" + str(generation) +".mp4"
+        writer = skvideo.io.FFmpegWriter(name)
 
     while True:
         
@@ -133,33 +137,37 @@ def run_game(env,model,generation,render=False,save=False):
             writer.writeFrame(env.render(mode='rgb_array'))
 
     
-        obs = preprocess_image(obs)
-        action = model.predict_classes(obs, batch_size=1)[0]
-        action = action_map[output_class]
+        cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
+        obs_diff = cur_obs - prev_obs if prev_obs is not None else np.zeros(input_dim).reshape([1,input_dim]) # Calculate frame difference as model input 
+        prev_obs = cur_obs
+        action = model.predict_classes(obs_diff, batch_size=1)[0]
+        action = action_map[action]
         obs, reward, done, _ = env.step(action)
         if done:
-            print("Game Over")
             break
     
     if save:
         writer.close()
 
     
-
+def save_pool():
+    for model_num in range(population):
+        currentPool[model_num].save_weights("Current_Model_Pool/model_new" + str(model_num) + ".keras")
+    print("Saved current pool!")
 
 def main():
     global fitness, currentPool, generation
     
     
-    for _ in range(num_generations):
+    for _ in range(num_generations+1):
         """ Train models num_generations times 
         """
         
         print("Running Generation: ", generation)
-        print("="*50)
+        print("="*70)
 
 
-
+        save_pool()
         fitness = run_episode(env)
         max_fitness,min_fitness = np.max(fitness),np.min(fitness)
         best_model = currentPool[np.argmax(fitness)]
@@ -171,7 +179,7 @@ def main():
 
         # Normalize the fitness of each model using minmax normalization 
         for model_num in range(population):
-            fitness[model_num] = (fitness[select] - min_fitness)/(max_fitness-min_fitness)
+            fitness[model_num] = (fitness[model_num] - min_fitness)/(max_fitness-min_fitness)
         
         for model_num in range(int(population/2)):
             parent1 = np.random.uniform(0, 1)
@@ -200,33 +208,15 @@ def main():
             currentPool[idx2].set_weights(updated_weights2)
 
         generation += 1
+        print("Finish current generation")
+        print("Current best game score: ",max_fitness)
+        print("_"*70)
+
+    
 
     return
 
-
-
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
     
-        
-
-
-    
-
-
 
 
 if __name__ == '__main__':
