@@ -93,12 +93,13 @@ def run_episode(env):
 
     After each episode of game, we move to new generation of models
     """
-    global fitness
+    fitness = list()
     total_reward = 0
     obs = env.reset() #Get the initial pixel output
     prev_obs = None
     print("Start...")
     for model_num in range(population):
+        
         while True:
             cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
             obs_diff = cur_obs - prev_obs if prev_obs is not None else np.zeros(input_dim).reshape([1,input_dim]) # Calculate frame difference as model input 
@@ -156,7 +157,7 @@ def save_pool():
     print("Saved current pool!")
 
 def main():
-    global fitness, currentPool, generation
+    global currentPool, generation
     
     
     for _ in range(num_generations+1):
