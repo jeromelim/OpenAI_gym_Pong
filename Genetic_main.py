@@ -93,22 +93,27 @@ def run_episode(env):
 
     After each episode of game, we move to new generation of models
     """
+
     fitness = [-21 for _ in range(population)]
-    total_reward = 0
-    obs = env.reset() #Get the initial pixel output
-    prev_obs = None
+    
+    
     print("Start...")
     for model_num in range(population):
-        
+        total_reward = 0
+        obs = env.reset() #Get the initial pixel output
+        prev_obs = None
         while True:
             cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
             obs_diff = cur_obs - prev_obs if prev_obs is not None else np.zeros(input_dim).reshape([1,input_dim]) # Calculate frame difference as model input 
             prev_obs = cur_obs
             action = predict_action(obs_diff,model_num) # Predict the next action using CNN
             obs, reward, done, _ = env.step(action)
+
             total_reward += reward
+
             if done:
                 fitness[model_num] = total_reward
+
                 print("Game Over for model ",model_num)
                 break
     return fitness
@@ -136,6 +141,7 @@ def run_game(env,model,generation,render=False,save=False):
 
         if save:
             writer.writeFrame(env.render(mode='rgb_array'))
+            
 
     
         cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
@@ -173,7 +179,8 @@ def main():
         max_fitness,min_fitness = np.max(fitness),np.min(fitness)
         best_model = currentPool[np.argmax(fitness)]
 
-        if generation %100 ==0:
+        if generation % 100 == 0:
+            print("Saving gameplay")
             run_game(env,best_model,generation,save=True)
             
 
