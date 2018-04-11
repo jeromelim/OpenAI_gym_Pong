@@ -22,7 +22,7 @@ action_map = {0:2,1:0,2:3} # predict class 0 will move racket up (action 2),
 # init variables for genetic algorithms 
 num_generations = 1000 # Number of times to evole the population.
 population = 50 # Number of networks in each generation.
-fitness = list() # Fitness scores for evaluate the model
+# fitness = list() # Fitness scores for evaluate the model
 generation = 0 # Start with first generation
 
 # init variables for CNN
@@ -68,7 +68,7 @@ for _ in range(population):
     opt = Adam(lr=learning_rate)
     model.compile(loss='categorical_crossentropy', optimizer=opt)
     currentPool.append(model)
-    fitness.append(-21) # -21 is the lowest score in game
+    # fitness.append(-21) # -21 is the lowest score in game
 
 def preprocess_image(I):
     """ Return array of 80 x 80
