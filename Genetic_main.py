@@ -94,7 +94,7 @@ def run_episode(env):
     After each episode of game, we move to new generation of models
     """
 
-    fitness = [-21 for _ in range(population)]
+    fitness = [-21 for _ in range(population)] # Worst game score in a game is -20
     
     
     print("Start...")
@@ -114,7 +114,7 @@ def run_episode(env):
             if done:
                 fitness[model_num] = total_reward
 
-                print("Game Over for model ",model_num)
+                print("Game Over for model ",model_num," with score ",total_reward)
                 break
     return fitness
 
@@ -162,6 +162,12 @@ def save_pool():
         currentPool[model_num].save_weights("Current_Model_Pool/model_new" + str(model_num) + ".keras")
     print("Saved current pool!")
 
+
+with open("Genetic_generation_score.txt", "w") as text_file:
+    text_file.write("{}, {}".format("generation","max_fitness"))
+    text_file.write("\n")
+
+
 def main():
     global currentPool, generation
     
@@ -177,6 +183,8 @@ def main():
         save_pool()
         fitness = run_episode(env)
         max_fitness,min_fitness = np.max(fitness),np.min(fitness)
+        print("Best model in this generation: ", np.argmax(fitness))
+        print(max_fitness,min_fitness)
         best_model = currentPool[np.argmax(fitness)]
 
         if generation % 100 == 0:
@@ -187,7 +195,12 @@ def main():
 
         # Normalize the fitness of each model using minmax normalization 
         for model_num in range(population):
-            fitness[model_num] = (fitness[model_num] - min_fitness)/(max_fitness-min_fitness)
+            if (max_fitness-min_fitness) ==0:
+                fitness[model_num] = 0.5
+            else:
+                fitness[model_num] = (fitness[model_num] - min_fitness)/(max_fitness-min_fitness)
+
+        fitness = fitness/ np.sum(fitness)
         
         for model_num in range(int(population/2)):
             parent1 = np.random.uniform(0, 1)
@@ -195,15 +208,21 @@ def main():
             idx1 = -1
             idx2 = -1
 
-            # Higher the fitness score higher chance it is selected 
-            for idxx in range(population):
-                if fitness[idxx] >= parent1:
-                    idx1 = idxx
-                    break
-            for idxx in range(population):
-                if fitness[idxx] >= parent2:
-                    idx2 = idxx
-                    break
+            idx1 = np.random.choice(list(range(population)),p=fitness)
+            idx2 = np.random.choice(list(range(population)),p=fitness)
+
+
+
+
+            # # Higher the fitness score higher chance it is selected 
+            # for idxx in range(population):
+            #     if fitness[idxx] >= parent1:
+            #         idx1 = idxx
+            #         break
+            # for idxx in range(population):
+            #     if fitness[idxx] >= parent2:
+            #         idx2 = idxx
+            #         break
             # Crossover weights of two models 
             new_weights1 = crossover(currentPool,idx1, idx2)
 
@@ -215,10 +234,16 @@ def main():
             currentPool[idx1].set_weights(updated_weights1)
             currentPool[idx2].set_weights(updated_weights2)
 
+        with open("Genetic_generation_score.txt", "a") as text_file:
+            text_file.write("{}, {}".format(generation,max_fitness))
+            text_file.write("\n")
+            
         generation += 1
         print("Finish current generation")
         print("Current best game score: ",max_fitness)
         print("_"*70)
+
+        
 
     
 
