@@ -6,23 +6,24 @@ import numpy as np
 import gym
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Reshape, Input
-from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Conv2D, Activation
 from keras.optimizers import Adam
+from keras.layers.normalization import BatchNormalization
 from genetic_algorithms import crossover, mutate
 import skvideo.io
 import os
 
+from collections import deque
+
 # init environment
 env = gym.make("Pong-v0")
-number_of_inputs = 3 # 3 actions: up, down, stay
-action_map = {0:2,1:0,2:3} # predict class 0 will move racket up (action 2), 
-                           # class 1 will keep racket stay(action 0) & class 2 will move racket down (action 3)
-
+# number_of_inputs = 3 # 2 actions: up, down
+action_map= {0:3,1:2} 
+n_observations_per_state = 3
 
 # init variables for genetic algorithms 
 num_generations = 1000 # Number of times to evole the population.
-population = 50 # Number of networks in each generation.
-# fitness = list() # Fitness scores for evaluate the model
+population = 20 # Number of networks in each generation.
 generation = 0 # Start with first generation
 
 # init variables for CNN
@@ -41,9 +42,7 @@ for _ in range(population):
     Convolutional Layer: 32 filers of 8 x 8 with stride 4 and applies ReLU activation function
         - output layer (width, height, depth): (20, 20, 32)
 
-    MaxPooling Layer: 2 x 2 filers with stride 2
-        - output layer (width, height, depth): (10, 10, 32)
-    
+
     Dense Layer: fully-connected consisted of 32 rectifier units
         - output layer: 32 neurons
 
@@ -57,18 +56,22 @@ for _ in range(population):
     """
     model = Sequential()
     model.add(Reshape((80,80,1), input_shape=(input_dim,)))
-    model.add(Conv2D(32, kernel_size = (8, 8), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
+    model.add(Conv2D(32, kernel_size = (3, 3), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
+    model.add(Conv2D(32, kernel_size = (3, 3), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
 
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
     model.add(Flatten())
-    model.add(Dense(32, activation='relu', kernel_initializer='he_uniform'))
-    model.add(Dropout(0.5))
-    model.add(Dense(3, activation='softmax'))
+    model.add(Dense(32, kernel_initializer='he_uniform'))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+
+    model.add(Dense(16, kernel_initializer='he_uniform'))
+    model.add(Activation('relu'))
+    model.add(Dense(1, activation='sigmoid'))
     opt = Adam(lr=learning_rate)
-    model.compile(loss='categorical_crossentropy', optimizer=opt)
+    model.compile(loss='binary_crossentropy', optimizer=opt)
     currentPool.append(model)
-    # fitness.append(-21) # -21 is the lowest score in game
+
 
 def preprocess_image(I):
     """ Return array of 80 x 80
@@ -79,12 +82,21 @@ def preprocess_image(I):
     I[I == 144] = 0 # erase background (background type 1)
     I[I == 109] = 0 # erase background (background type 2)
     I[I != 0] = 1 # everything else (paddles, ball) just set to 1
-    return I.reshape([1,len(I.ravel())])
+    return I.reshape([1,len(I.ravel())]).astype(float)
 
 def predict_action(processed_obs,model_num):
     global currentPool
-    output_class = currentPool[model_num].predict_classes(processed_obs, batch_size=1)[0]
-    return action_map[output_class]
+    output_prob = currentPool[model_num].predict(processed_obs, batch_size=1)[0][0]
+    # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0][0])
+    
+
+    return 2 if (output_prob >0.5 ) else 3 if (output_prob >0.5 ) else np.random.choice([2,3])
+
+def combine_observations_singlechannel(preprocessed_observations, dim_factor=0.5):
+    dimmed_observations = [obs * dim_factor**index
+                           for index, obs in enumerate(reversed(preprocessed_observations))]
+    return np.max(np.array(dimmed_observations), axis=0)
+
 
 def run_episode(env):
     """ Run single episode of pong (one game)
@@ -94,20 +106,21 @@ def run_episode(env):
     After each episode of game, we move to new generation of models
     """
 
-    fitness = [-21 for _ in range(population)] # Worst game score in a game is -20
+    fitness = [-22 for _ in range(population)] # Worst game score in a game is -21
     
     
     print("Start...")
     for model_num in range(population):
         total_reward = 0
         obs = env.reset() #Get the initial pixel output
-        prev_obs = None
+        preprocessed_observations = deque([], maxlen=n_observations_per_state)
+
         while True:
-            cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
-            obs_diff = cur_obs - prev_obs if prev_obs is not None else np.zeros(input_dim).reshape([1,input_dim]) # Calculate frame difference as model input 
-            prev_obs = cur_obs
-            action = predict_action(obs_diff,model_num) # Predict the next action using CNN
+   
+            preprocessed_observations.append(preprocess_image(obs))
+            action = predict_action(combine_observations_singlechannel(preprocessed_observations),model_num) # Predict the next action using CNN
             obs, reward, done, _ = env.step(action)
+
 
             total_reward += reward
 
@@ -128,7 +141,8 @@ def run_game(env,model,generation,render=False,save=False):
     save: if True save the gameplay in mp4 format
     """
     obs = env.reset()
-    prev_obs = None
+
+    preprocessed_observations = deque([], maxlen=n_observations_per_state)
     if save:
         name = "genetic_gameplay/genetic_pong_generation_" + str(generation) +".mp4"
         writer = skvideo.io.FFmpegWriter(name)
@@ -143,13 +157,11 @@ def run_game(env,model,generation,render=False,save=False):
             writer.writeFrame(env.render(mode='rgb_array'))
             
 
-    
-        cur_obs = preprocess_image(obs) # Preprocess the raw pixel to save computation time
-        obs_diff = cur_obs - prev_obs if prev_obs is not None else np.zeros(input_dim).reshape([1,input_dim]) # Calculate frame difference as model input 
-        prev_obs = cur_obs
-        action = model.predict_classes(obs_diff, batch_size=1)[0]
-        action = action_map[action]
-        obs, reward, done, _ = env.step(action)
+        preprocessed_observations.append(preprocess_image(obs))
+        action = model.predict(combine_observations_singlechannel(preprocessed_observations), batch_size=1)[0][0]
+        action = 2 if action >0.5 else 3 if action >0.5 else np.random.choice([2,3])
+        # action = action_map[action]
+        obs, _, done, _ = env.step(action)
         if done:
             break
     
@@ -181,58 +193,78 @@ def main():
 
 
         save_pool()
+        obs = env.reset()
         fitness = run_episode(env)
         max_fitness,min_fitness = np.max(fitness),np.min(fitness)
         print("Best model in this generation: ", np.argmax(fitness))
         print(max_fitness,min_fitness)
         best_model = currentPool[np.argmax(fitness)]
 
-        if generation % 100 == 0:
+        if generation %10==0:
             print("Saving gameplay")
             run_game(env,best_model,generation,save=True)
             
 
+        print("Start training")
+        print("*"*70)
 
-        # Normalize the fitness of each model using minmax normalization 
-        for model_num in range(population):
-            if (max_fitness-min_fitness) ==0:
-                fitness[model_num] = 0.5
-            else:
-                fitness[model_num] = (fitness[model_num] - min_fitness)/(max_fitness-min_fitness)
 
-        fitness = fitness/ np.sum(fitness)
+  
+        # Reference https://blog.coast.ai/lets-evolve-a-neural-network-with-a-genetic-algorithm-code-included-8809bece164
+        sorted_models = [x for _, x in sorted(zip(fitness,currentPool.copy()), key=lambda pair: pair[0],reverse=True)]
+        Keep_models = list()
+
+        # Init child_model (Will change the weights later)
+        child_models = sorted_models[:2].copy()
+
+        Keep_models.extend(sorted_models[:5]) # keep best 5 models
         
-        for model_num in range(int(population/2)):
-            parent1 = np.random.uniform(0, 1)
-            parent2 = np.random.uniform(0, 1)
-            idx1 = -1
-            idx2 = -1
+        # Randomly keep some models 
+        for model in sorted_models[5:]:
+            if np.random.uniform(0,1) >0.7:
+                Keep_models.append(model)
 
-            idx1 = np.random.choice(list(range(population)),p=fitness)
-            idx2 = np.random.choice(list(range(population)),p=fitness)
+        print("Number of models kept: ", len(Keep_models))
 
 
+        print("Breeding new children")
+        while len(Keep_models) < population:
+            
+            # Higher the fitness score higher chance it is selected 
+            idx1 = np.random.choice(list(range(len(sorted_models[:6])))) # Breed base on top 6 models
+            idx2 = idx1
+
+            while idx2 == idx1:
+                idx2 = np.random.choice(list(range(len(sorted_models[:6]))))
+
+            new_weights = crossover(sorted_models,idx1, idx2)
 
 
-            # # Higher the fitness score higher chance it is selected 
-            # for idxx in range(population):
-            #     if fitness[idxx] >= parent1:
-            #         idx1 = idxx
-            #         break
-            # for idxx in range(population):
-            #     if fitness[idxx] >= parent2:
-            #         idx2 = idxx
-            #         break
-            # Crossover weights of two models 
-            new_weights1 = crossover(currentPool,idx1, idx2)
+            # Breed new children
+            child_models[0].set_weights(new_weights[0])
+            child_models[1].set_weights(new_weights[1])
 
-            # Mutate the weights randomly
-            updated_weights1 = mutate(new_weights1[0])
-            updated_weights2 = mutate(new_weights1[1])
+            for child in child_models:
+                if len(Keep_models) < population:
+                    
+                    Keep_models.append(child)
 
-            # Update the weights
-            currentPool[idx1].set_weights(updated_weights1)
-            currentPool[idx2].set_weights(updated_weights2)
+        print("Mutating weights")
+
+        for i in range(len(Keep_models)):
+            new_weights = Keep_models[i].get_weights()
+            new_weights = mutate(new_weights)
+            Keep_models[i].set_weights(new_weights)
+
+
+        currentPool = Keep_models
+
+        print("Finished training")
+
+
+  
+
+
 
         with open("Genetic_generation_score.txt", "a") as text_file:
             text_file.write("{}, {}".format(generation,max_fitness))
