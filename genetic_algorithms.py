@@ -43,6 +43,6 @@ def mutate(weights):
         for xi in range(len(weights[layers])):
             for yi in range(len(weights[layers][xi])):
                 if np.random.uniform(0,1) > 0.85:
-                    change = np.random.uniform(-0.2,0.2)
+                    change = np.random.uniform(-0.3,0.3)
                     weights[layers][xi][yi] += change
     return weights
