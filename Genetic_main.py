@@ -23,8 +23,9 @@ n_observations_per_state = 3
 
 # init variables for genetic algorithms 
 num_generations = 1000 # Number of times to evole the population.
-population = 20 # Number of networks in each generation.
+population = 30 # Number of networks in each generation.
 generation = 0 # Start with first generation
+model_to_keep = 6
 
 # init variables for CNN
 currentPool = []
@@ -217,10 +218,10 @@ def main():
         # Init child_model (Will change the weights later)
         child_models = sorted_models[:2].copy()
 
-        Keep_models.extend(sorted_models[:5]) # keep best 5 models
+        Keep_models.extend(sorted_models[:model_to_keep]) # keep best models
         
         # Randomly keep some models 
-        for model in sorted_models[5:]:
+        for model in sorted_models[model_to_keep:]:
             if np.random.uniform(0,1) >0.7:
                 Keep_models.append(model)
 
@@ -231,11 +232,11 @@ def main():
         while len(Keep_models) < population:
             
             # Higher the fitness score higher chance it is selected 
-            idx1 = np.random.choice(list(range(len(sorted_models[:6])))) # Breed base on top 6 models
+            idx1 = np.random.choice(list(range(len(sorted_models[:model_to_keep+3])))) 
             idx2 = idx1
 
             while idx2 == idx1:
-                idx2 = np.random.choice(list(range(len(sorted_models[:6]))))
+                idx2 = np.random.choice(list(range(len(sorted_models[:model_to_keep+3]))))
 
             new_weights = crossover(sorted_models,idx1, idx2)
 
