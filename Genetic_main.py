@@ -91,7 +91,7 @@ def predict_action(processed_obs,model_num):
     # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0][0])
     
 
-    return 2 if (output_prob >0.5 ) else 3 if (output_prob >0.5 ) else np.random.choice([2,3])
+    return 2 if (output_prob >0.5) else 3 if (output_prob <=0.5 )
 
 def combine_observations_singlechannel(preprocessed_observations, dim_factor=0.5):
     dimmed_observations = [obs * dim_factor**index
@@ -160,7 +160,7 @@ def run_game(env,model,generation,render=False,save=False):
 
         preprocessed_observations.append(preprocess_image(obs))
         action = model.predict(combine_observations_singlechannel(preprocessed_observations), batch_size=1)[0][0]
-        action = 2 if action >0.5 else 3 if action >0.5 else np.random.choice([2,3])
+        action = 2 if action >0.5 else 3 if action <=0.5
         # action = action_map[action]
         obs, _, done, _ = env.step(action)
         if done:
