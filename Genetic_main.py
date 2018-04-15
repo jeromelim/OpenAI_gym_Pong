@@ -18,7 +18,7 @@ from collections import deque
 # init environment
 env = gym.make("Pong-v0")
 # number_of_inputs = 3 # 2 actions: up, down
-action_map= {0:3,1:2} 
+action_map= {0:3,1:0,2:2} 
 n_observations_per_state = 3
 
 # init variables for genetic algorithms 
@@ -70,7 +70,7 @@ for _ in range(population):
     model.add(Activation('relu'))
     model.add(Dense(1, activation='sigmoid'))
     opt = Adam(lr=learning_rate)
-    model.compile(loss='binary_crossentropy', optimizer=opt)
+    model.compile(loss='categorical_crossentropy', optimizer=opt)
     currentPool.append(model)
 
 
@@ -88,12 +88,12 @@ def preprocess_image(I):
 def predict_action(processed_obs,model_num):
     global currentPool
     output_prob = currentPool[model_num].predict(processed_obs, batch_size=1)[0][0]
-    # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0][0])
-    
+    # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0],"+",output_prob)
 
-    return 2 if (output_prob >0.5) else 3 
+    # return action_map[output_prob]
+    return 2 if output_prob>=0.5 else 3
 
-def combine_observations_singlechannel(preprocessed_observations, dim_factor=0.5):
+def combine_observations_singlechannel(preprocessed_observations, dim_factor=0.7):
     dimmed_observations = [obs * dim_factor**index
                            for index, obs in enumerate(reversed(preprocessed_observations))]
     return np.max(np.array(dimmed_observations), axis=0)
@@ -160,7 +160,7 @@ def run_game(env,model,generation,render=False,save=False):
 
         preprocessed_observations.append(preprocess_image(obs))
         action = model.predict(combine_observations_singlechannel(preprocessed_observations), batch_size=1)[0][0]
-        action = 2 if action >0.5 else 3 
+        action = 2 if action >=0.5 else 3 
         # action = action_map[action]
         obs, _, done, _ = env.step(action)
         if done:
