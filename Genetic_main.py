@@ -30,7 +30,7 @@ model_to_keep = 6
 # init variables for CNN
 currentPool = []
 input_dim = 80*80
-learning_rate = 0.001
+learning_rate = 1e-6
 
 # Initialize all models
 for _ in range(population):
