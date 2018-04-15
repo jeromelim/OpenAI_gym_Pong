@@ -17,8 +17,13 @@ from collections import deque
 
 # init environment
 env = gym.make("Pong-v0")
+<<<<<<< HEAD
 # number_of_inputs = 3 # 2 actions: up, down
 action_map= {0:3,1:0,2:2} 
+=======
+# number_of_inputs = 3 # 3 actions: up, down, stay
+action_map= {0:3,1:3} 
+>>>>>>> 148edabb7fb00a73182ec694a018b6b77a04e37e
 n_observations_per_state = 3
 
 # init variables for genetic algorithms 
@@ -30,7 +35,7 @@ model_to_keep = 6
 # init variables for CNN
 currentPool = []
 input_dim = 80*80
-learning_rate = 0.001
+learning_rate = 1e-6
 
 # Initialize all models
 for _ in range(population):
@@ -68,7 +73,7 @@ for _ in range(population):
 
     model.add(Dense(16, kernel_initializer='he_uniform'))
     model.add(Activation('relu'))
-    model.add(Dense(1, activation='sigmoid'))
+    model.add(Dense(1, activation='softmax'))
     opt = Adam(lr=learning_rate)
     model.compile(loss='categorical_crossentropy', optimizer=opt)
     currentPool.append(model)
@@ -87,11 +92,19 @@ def preprocess_image(I):
 
 def predict_action(processed_obs,model_num):
     global currentPool
+<<<<<<< HEAD
     output_prob = currentPool[model_num].predict(processed_obs, batch_size=1)[0][0]
     # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0],"+",output_prob)
 
     # return action_map[output_prob]
     return 2 if output_prob>=0.5 else 3
+=======
+    output_prob = currentPool[model_num].predict_classes(processed_obs, batch_size=1)[0][0]
+    # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0][0])
+    
+
+    return 2 if (output_prob >0.5) else 3 (if output_prob <0.5 and output_prob >0) else 1
+>>>>>>> 148edabb7fb00a73182ec694a018b6b77a04e37e
 
 def combine_observations_singlechannel(preprocessed_observations, dim_factor=0.7):
     dimmed_observations = [obs * dim_factor**index
@@ -160,7 +173,11 @@ def run_game(env,model,generation,render=False,save=False):
 
         preprocessed_observations.append(preprocess_image(obs))
         action = model.predict(combine_observations_singlechannel(preprocessed_observations), batch_size=1)[0][0]
+<<<<<<< HEAD
         action = 2 if action >=0.5 else 3 
+=======
+        action = 2 if action >0.5 else 3 if (action <0.5 and action >0) else 1
+>>>>>>> 148edabb7fb00a73182ec694a018b6b77a04e37e
         # action = action_map[action]
         obs, _, done, _ = env.step(action)
         if done:
@@ -222,7 +239,7 @@ def main():
         
         # Randomly keep some models 
         for model in sorted_models[model_to_keep:]:
-            if np.random.uniform(0,1) >0.7:
+            if np.random.uniform(0,1) >0.85:
                 Keep_models.append(model)
 
         print("Number of models kept: ", len(Keep_models))
