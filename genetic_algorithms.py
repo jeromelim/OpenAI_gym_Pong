@@ -27,7 +27,7 @@ def crossover(current_generation,model_idx1, model_idx2):
     weightsnew1 = weights1
     weightsnew2 = weights2
     
-    for swap_layer in [4,6,8,10]:
+    for swap_layer in [0,2,4,6,8]:
         if np.random.uniform(0,1)>0.5:
             
             weightsnew1[swap_layer] = weights2[swap_layer]
@@ -36,17 +36,18 @@ def crossover(current_generation,model_idx1, model_idx2):
 
 
 
-def mutate(weights):
+def mutate(weights,mutation_power):
     """Select weights randomly with a 0.15 probability and then change its value with a random number
     """
-    for layers in [4,6,8,10]:
-        if np.random.uniform(0,1) >=0.98:
-            mean,std = np.mean(weights[layers]), np.std(weights[layers]) 
-            change = np.random.normal(mean,std,weights[layers].shape) # Twist the weights around it's mean  
+    for layers in [0,2,4,6,8]:
+        
+        mean,std = np.mean(weights[layers]), np.std(weights[layers]) 
+        change = np.random.normal(mean,std,weights[layers].shape) # Twist the weights around it's mean  
+        change = change * mutation_power
             # for idx in range(len(change)):
             #     # if np.random.uniform(0,1) <= 0.95:
             #     change[idx] = 0
             # change = change.reshape(weights[layers].shape)
                     
-            weights[layers] += change
+        weights[layers] += change
     return weights
