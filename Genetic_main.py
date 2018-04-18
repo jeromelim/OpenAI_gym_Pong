@@ -259,7 +259,7 @@ def main():
 
         for i in range(len(Keep_models)):
             new_weights = Keep_models[i].get_weights()
-            new_weights = mutate(new_weights)
+            new_weights = mutate(new_weights,mutation_power)
             Keep_models[i].set_weights(new_weights)
 
 
