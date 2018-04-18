@@ -17,16 +17,15 @@ from collections import deque
 
 # init environment
 env = gym.make("Pong-v0")
-# number_of_inputs = 3 # 2 actions: up, down
-# action_map= {0:3,1:0,2:2} 
+
 n_observations_per_state = 3
 
 # init variables for genetic algorithms 
 num_generations = 1000 # Number of times to evole the population.
 population = 30 # Number of networks in each generation.
 generation = 0 # Start with first generation
-model_to_keep = int(population * 0.2)
-
+model_to_keep = int(population * 0.2) # Keep top T models
+mutation_power = 0.005
 # init variables for CNN
 currentPool = []
 input_dim = 80*80
@@ -40,30 +39,17 @@ def init_model(poolOfModel,population):
         Keras 2.1.1; tensorflow as backend.
 
 
-        Structure of CNN
-        ----------------
-        Convolutional Layer x 2: 32 filers of 3 x 3 with stride 4 and applies ReLU activation function
-
-
-        Dense Layer: fully-connected consisted of 32 rectifier units
-        Dense Layer: fully-connected consisted of 16 rectifier units
-
-
-        Output Layer: fully-connected linear layer with a single output, applies sigmoid activation function
-        
-
-        Refernce: https://github.com/mkturkcan/Keras-Pong/blob/master/keras_pong.py
-
         """
         model = Sequential()
         model.add(Reshape((80,80,1), input_shape=(input_dim,)))
-        model.add(BatchNormalization())
-        model.add(Conv2D(32, kernel_size = (3, 3), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
-        model.add(Conv2D(64, kernel_size = (3, 3), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
+        # model.add(BatchNormalization())
+        model.add(Conv2D(32, kernel_size = (8, 8), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
+        model.add(Conv2D(64, kernel_size = (4, 4), strides=(2, 2), padding='same', activation='relu', kernel_initializer='he_uniform'))
+        model.add(Conv2D(64, kernel_size = (3, 3), strides=(1, 1), padding='same', activation='relu', kernel_initializer='he_uniform'))
 
 
         model.add(Flatten())
-        model.add(Dense(64, kernel_initializer='he_uniform'))
+        model.add(Dense(512, kernel_initializer='he_uniform'))
         
         model.add(Activation('relu'))
 
