@@ -22,3 +22,29 @@ action 0 and 1 are useless, as nothing happens to the racket.
 
 action 2 & 4 makes the racket go up, and action 3 & 5 makes the racket go down.
 
+## DQN
+
+### How to run the programs:
+
+#### Environment Requirement
+-   Tensorflow:  1.2.1
+-   Python:         2.7
+
+#### Deep Q-Learning (DQN)
+
+Our DQN agent can be ran from the ./dqn directory. You can run it by using the command:
+
+```bash
+python main.py --env_name=Pong-v0 --is_train=True --display=True
+```
+
+
+This will run the program on the Pong environment with Training Mode and Rendering
+turned on.
+
+### Acknowledgement:
+
+The code for our DQN approach is the existing code from devisers.
+The original repository can be found [here](https://github.com/yashbhutwala/pong-ai/tree/master/dqn)
+
+
