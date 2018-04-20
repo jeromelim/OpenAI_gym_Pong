@@ -24,8 +24,10 @@ n_observations_per_state = 3
 num_generations = 1000 # Number of times to evole the population.
 population = 30 # Number of networks in each generation.
 generation = 0 # Start with first generation
-model_to_keep = int(population * 0.2) # Keep top T models
+model_to_keep = int(population * 0.2) # Keep top 20% of models
+crossover_prob = 0.5
 mutation_power = 0.005
+
 # init variables for CNN
 currentPool = []
 input_dim = 80*80
@@ -38,11 +40,13 @@ def init_model(poolOfModel,population):
         """
         Keras 2.1.1; tensorflow as backend.
 
+        Architecture borrowed from: Mnih et al. (2015)
+
+
 
         """
         model = Sequential()
         model.add(Reshape((80,80,1), input_shape=(input_dim,)))
-        # model.add(BatchNormalization())
         model.add(Conv2D(32, kernel_size = (8, 8), strides=(4, 4), padding='same', activation='relu', kernel_initializer='he_uniform'))
         model.add(Conv2D(64, kernel_size = (4, 4), strides=(2, 2), padding='same', activation='relu', kernel_initializer='he_uniform'))
         model.add(Conv2D(64, kernel_size = (3, 3), strides=(1, 1), padding='same', activation='relu', kernel_initializer='he_uniform'))
@@ -53,8 +57,6 @@ def init_model(poolOfModel,population):
         
         model.add(Activation('relu'))
 
-        # model.add(Dense(16, kernel_initializer='he_uniform'))
-        # model.add(Activation('relu'))
         model.add(Dense(1, activation='sigmoid'))
         opt = Adam(lr=learning_rate)
         model.compile(loss='binary_crossentropy', optimizer=opt)
@@ -64,6 +66,7 @@ def init_model(poolOfModel,population):
 
 def preprocess_image(I):
     """ Return array of 80 x 80
+    Reference:
     https://github.com/mkturkcan/Keras-Pong/blob/master/keras_pong.py
     """
     I = I[35:195] # crop
@@ -77,22 +80,24 @@ def predict_action(processed_obs,model_num):
     global currentPool
     output_prob = currentPool[model_num].predict(processed_obs, batch_size=1)[0][0]
 
-    # print(currentPool[model_num].predict(processed_obs, batch_size=1)[0],"+",output_prob)
-
     return np.random.choice([2,3],1,p=[output_prob,1-output_prob])
 
 def combine_observations_singlechannel(preprocessed_observations, dim_factor=0.5):
+    """
+    From the book Hands-on Machine Learning with Scikit-Learn and TensorFlow
+    """
+
     dimmed_observations = [obs * dim_factor**index
                            for index, obs in enumerate(reversed(preprocessed_observations))]
     return np.max(np.array(dimmed_observations), axis=0)
 
 
 def run_episode(env):
-    """ Run single episode of pong (one game)
-    Each episode run, each of population model will play 
+    """ Run episode of pong (one game)
+    Each episode run, each of networks in population will play 
     the game and get the fitness(final reward when game is finished)
 
-    After each episode of game, we move to new generation of models
+
     """
 
     fitness = [-22 for _ in range(population)] # Worst game score in a game is -21
@@ -101,6 +106,7 @@ def run_episode(env):
     print("Start...")
     for model_num in range(population):
         total_reward = 0
+        # Run three games to get average fitness
         for _ in range(3):
             obs = env.reset() #Get the initial pixel output
             preprocessed_observations = deque([], maxlen=n_observations_per_state)
@@ -149,7 +155,6 @@ def run_game(env,model,generation,render=False,save=False):
         preprocessed_observations.append(preprocess_image(obs))
         output_prob = model.predict(combine_observations_singlechannel(preprocessed_observations), batch_size=1)[0][0]
         action = np.random.choice([2,3],1,p=[output_prob,1-output_prob])
-        # action = action_map[action]
         obs, _, done, _ = env.step(action)
         if done:
             break
@@ -159,7 +164,7 @@ def run_game(env,model,generation,render=False,save=False):
 
     
 def save_pool(best_model,score):
-    best_model.save_weights("Current_Model_Pool/model_best_in_generation" + str(generation) +" score_"+str(score) +".keras")
+    best_model.save("Current_Model_Pool/model_best_in_generation" + str(generation) +" score_"+str(score) +".h5")
     print("Saved Best model!")
 
 
@@ -221,10 +226,7 @@ def main():
             Keep_models.extend([x for fitness,x in zip(sorted_fitness,sorted_models) if fitness != -21])
             Keep_models = Keep_models[:model_to_keep] #keep only top 20% (if any)
             
-            # Randomly keep some models 
-            # for model in sorted_models[model_to_keep:]:
-            #     if np.random.uniform(0,1) >0.9:
-            #         Keep_models.append(model)
+
 
             print("Number of models kept: ", len(Keep_models))
             # Init child_model (Will change the weights later)
@@ -239,7 +241,7 @@ def main():
                 while idx2 == idx1:
                     idx2 = np.random.choice(list(range(len(Keep_models[:model_to_keep]))))
 
-                new_weights = crossover(Keep_models,idx1, idx2)
+                new_weights = crossover(Keep_models,idx1, idx2,crossover_prob=crossover_prob)
 
 
                 # Breed new children
