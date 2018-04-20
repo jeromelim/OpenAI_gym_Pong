@@ -2,18 +2,30 @@
 
 #### Environment:
 
+Two games from OpenAI Atari environment were used to demonstrate Genetic Algorithms. The two games are Pong-v0 and Cartpole-v0. 
+
+Cartpole:
+
+> A pole is attached by an un-actuated joint to a cart, which moves along a frictionless track. The pendulum starts upright, and the goal is to prevent it from falling over by increasing and reducing the cart's velocity.(https://github.com/openai/gym/wiki/CartPole-v0) 
+
+Pong: 
 > In the game of Pong, the policy could take the pixels of the screen and compute the probability of moving the player’s paddle Up or Down.(https://blog.openai.com/evolution-strategies/)
 
 
 
 
 #### Action:
+
+For Pong-v0:
+
 Action 0 & 1 makes the racket stay
 
 Action 2 & 4 makes the racket go up
 
 Action 3 & 5 makes the racket go down
 
+For Cartpole:
+Action 0 & 1 makes the cart go left and right
 
 
 ## Genetic Algorithms
@@ -25,10 +37,15 @@ Action 3 & 5 makes the racket go down
 - Python 3
 
 
-Run Genetic_main.py to start training the agent. We recommend increasing the population to get better result. 
+Run Genetic_main.py to start training the agent on Pong-v0 environment. We recommend increasing the population to get better result. 
 
 ```bash
 python Genetic_main.py
+```
+
+Run Genetic_main_CartPole.py to start training the agent on Cartpole-v0 environment. 
+```bash
+python Genetic_main_CartPole.py
 ```
 
 ## DQN
