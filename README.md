@@ -25,6 +25,7 @@ Action 2 & 4 makes the racket go up
 Action 3 & 5 makes the racket go down
 
 For Cartpole:
+
 Action 0 & 1 makes the cart go left and right
 
 
