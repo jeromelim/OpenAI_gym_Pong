@@ -1,0 +1,5 @@
+bin/
+lib/
+lib/python3.10
+include/
+pyvenv.cfg

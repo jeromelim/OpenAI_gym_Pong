@@ -90,8 +90,7 @@ def run_episode(env):
 
 
                 action = predict_action(obs,model_num)
-
-                obs, reward, done, _ = env.step(action)
+                obs, reward, terminated, truncated, info = env.step(action)
                 
 
                 obs = np.reshape(obs, [1, 4])
