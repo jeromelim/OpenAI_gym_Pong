@@ -32,7 +32,7 @@ def crossover(current_generation,model_idx1, model_idx2,crossover_prob=0.5):
             
             weightsnew1[swap_layer] = weights2[swap_layer]
             weightsnew2[swap_layer] = weights1[swap_layer]
-    return np.asarray([weightsnew1, weightsnew2])
+    return [weightsnew1, weightsnew2]
 
 
 

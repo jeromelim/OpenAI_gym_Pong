@@ -8,7 +8,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Reshape, Input
 from keras.layers import Conv2D, Activation
 from keras.optimizers import Adam
-from keras.layers.normalization import BatchNormalization
+from keras.layers import BatchNormalization
 from genetic_algorithms import crossover, mutate
 import skvideo.io
 import os
@@ -16,17 +16,18 @@ import os
 from collections import deque
 
 # init environment
-env = gym.make("Pong-v0")
+env = gym.make("ALE/Pong-v5", render_mode="rgb_array")
 
 n_observations_per_state = 3
 
 # init variables for genetic algorithms 
-num_generations = 1000 # Number of times to evole the population.
-population = 30 # Number of networks in each generation.
+#num_generations = 1000 # Number of times to evole the population.
+num_generations = 5 # Number of times to evole the population.
+population = 5 # Number of networks in each generation.
 generation = 0 # Start with first generation
-model_to_keep = int(population * 0.2) # Keep top 20% of models
+model_to_keep = max(int(population * 0.2), 2)  # Keep top 20% of models, at least 2
 crossover_prob = 0.5
-mutation_power = 0.005
+mutation_power = 0.02
 
 # init variables for CNN
 currentPool = []
@@ -58,7 +59,7 @@ def init_model(poolOfModel,population):
         model.add(Activation('relu'))
 
         model.add(Dense(1, activation='sigmoid'))
-        opt = Adam(lr=learning_rate)
+        opt = Adam(learning_rate=learning_rate)
         model.compile(loss='binary_crossentropy', optimizer=opt)
         poolOfModel.append(model)
     return poolOfModel
@@ -108,18 +109,28 @@ def run_episode(env):
         total_reward = 0
         # Run three games to get average fitness
         for _ in range(3):
-            obs = env.reset() #Get the initial pixel output
+            obs, _ = env.reset() #Get the initial pixel output
             preprocessed_observations = deque([], maxlen=n_observations_per_state)
-
+            step_count = 0
+            decision_interval = 10
             while True:
-    
+                # if step_count % decision_interval == 0:
+                #     preprocessed_observations.append(preprocess_image(obs))
+                #     action = predict_action(combine_observations_singlechannel(preprocessed_observations),model_num)
+                #     action = int(action)
+                # obs, reward, terminated, truncated, info = env.step(action)
+                # done = terminated or truncated
+                # step_count += 1
+                
+                # if step_count % decision_interval == 0:
+                #     total_reward += reward
                 preprocessed_observations.append(preprocess_image(obs))
                 action = predict_action(combine_observations_singlechannel(preprocessed_observations),model_num)
-                obs, reward, done, _ = env.step(action)
-
-
+                action = int(action)
+                obs, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+                
                 total_reward += reward
-
                 if done:
                     break
         fitness[model_num] = total_reward/3 
@@ -135,12 +146,20 @@ def run_game(env,model,generation,render=False,save=False):
     render: if True, render the gameplay
     save: if True save the gameplay in mp4 format
     """
-    obs = env.reset()
+    obs, _ = env.reset()
 
     preprocessed_observations = deque([], maxlen=n_observations_per_state)
     if save:
         name = "genetic_gameplay/genetic_pong_generation_" + str(generation) +".mp4"
-        writer = skvideo.io.FFmpegWriter(name)
+        os.makedirs(os.path.dirname(name), exist_ok=True)
+        writer = skvideo.io.FFmpegWriter(
+        name,
+        outputdict={
+            '-vcodec': 'libx264',
+            '-pix_fmt': 'yuv420p',
+            '-movflags': '+faststart'
+        }
+    )
 
     while True:
         
@@ -149,13 +168,15 @@ def run_game(env,model,generation,render=False,save=False):
             env.render()
 
         if save:
-            writer.writeFrame(env.render(mode='rgb_array'))
+            writer.writeFrame(env.render())
             
 
         preprocessed_observations.append(preprocess_image(obs))
         output_prob = model.predict(combine_observations_singlechannel(preprocessed_observations), batch_size=1)[0][0]
         action = np.random.choice([2,3],1,p=[output_prob,1-output_prob])
-        obs, _, done, _ = env.step(action)
+        action = int(action)
+        obs, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
         if done:
             break
     
